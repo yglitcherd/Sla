@@ -1,0 +1,208 @@
+-- UI_Lib_v2.lua
+
+local UI_Lib = {}
+
+-- Função para criar a janela
+function UI_Lib:CreateWindow(title, size, position)
+    local window = Instance.new("ScreenGui")
+    window.Name = title
+    window.ResetOnSpawn = false
+    window.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+    local frame = Instance.new("Frame")
+    frame.Size = size
+    frame.Position = position
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    frame.Parent = window
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Text = title
+    titleLabel.Size = UDim2.new(1, 0, 0, 40)
+    titleLabel.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 20
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Center
+    titleLabel.Parent = frame
+
+    return window, frame
+end
+
+-- Função para criar botões
+function UI_Lib:CreateButton(frame, name, size, position, callback)
+    local button = Instance.new("TextButton")
+    button.Size = size
+    button.Position = position
+    button.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Text = name
+    button.TextSize = 18
+    button.Parent = frame
+
+    button.MouseButton1Click:Connect(function()
+        callback()
+    end)
+
+    return button
+end
+
+-- Função para criar caixas de texto
+function UI_Lib:CreateTextBox(frame, name, size, position, defaultText, callback)
+    local textBox = Instance.new("TextBox")
+    textBox.Size = size
+    textBox.Position = position
+    textBox.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.Text = defaultText
+    textBox.TextSize = 18
+    textBox.Parent = frame
+
+    textBox.FocusLost:Connect(function()
+        callback(textBox.Text)
+    end)
+
+    return textBox
+end
+
+-- Função para criar sliders
+function UI_Lib:CreateSlider(frame, name, size, position, minValue, maxValue, defaultValue, callback)
+    local slider = Instance.new("Frame")
+    slider.Size = size
+    slider.Position = position
+    slider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    slider.Parent = frame
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(1, 0, 0, 10)
+    bar.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    bar.Parent = slider
+
+    local handle = Instance.new("Frame")
+    handle.Size = UDim2.new(0, 10, 1, 0)
+    handle.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+    handle.Parent = bar
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.Position = UDim2.new(0, 0, 1, 5)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 14
+    label.Text = name .. ": " .. defaultValue
+    label.Parent = slider
+
+    local dragging = false
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end)
+
+    handle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging then
+            local mousePos = input.Position.X
+            local barPos = bar.AbsolutePosition.X
+            local barSize = bar.AbsoluteSize.X
+            local newX = math.clamp(mousePos - barPos, 0, barSize)
+            local sliderValue = math.floor((newX / barSize) * (maxValue - minValue) + minValue)
+            handle.Position = UDim2.new(0, newX, 0, 0)
+            label.Text = name .. ": " .. sliderValue
+            callback(sliderValue)
+        end
+    end)
+
+    return slider
+end
+
+-- Função para criar checkboxes
+function UI_Lib:CreateCheckbox(frame, name, size, position, defaultChecked, callback)
+    local checkbox = Instance.new("Frame")
+    checkbox.Size = size
+    checkbox.Position = position
+    checkbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    checkbox.Parent = frame
+
+    local box = Instance.new("TextButton")
+    box.Size = UDim2.new(0, 20, 0, 20)
+    box.BackgroundColor3 = defaultChecked and Color3.fromRGB(70, 130, 180) or Color3.fromRGB(100, 100, 100)
+    box.Text = ""
+    box.Parent = checkbox
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -30, 1, 0)
+    label.Position = UDim2.new(0, 30, 0, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 16
+    label.Text = name
+    label.Parent = checkbox
+
+    local checked = defaultChecked
+
+    box.MouseButton1Click:Connect(function()
+        checked = not checked
+        box.BackgroundColor3 = checked and Color3.fromRGB(70, 130, 180) or Color3.fromRGB(100, 100, 100)
+        callback(checked)
+    end)
+
+    return checkbox
+end
+
+-- Função para criar abas (Tabs)
+function UI_Lib:CreateTabs(frame, tabNames)
+    local tabButtonsFrame = Instance.new("Frame")
+    tabButtonsFrame.Size = UDim2.new(1, 0, 0, 40)
+    tabButtonsFrame.Position = UDim2.new(0, 0, 0, 40)
+    tabButtonsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    tabButtonsFrame.Parent = frame
+
+    local tabPagesFrame = Instance.new("Frame")
+    tabPagesFrame.Size = UDim2.new(1, 0, 1, -40)
+    tabPagesFrame.Position = UDim2.new(0, 0, 0, 40)
+    tabPagesFrame.BackgroundTransparency = 1
+    tabPagesFrame.Parent = frame
+
+    local currentTab = nil
+    local tabs = {}
+
+    for i, tabName in ipairs(tabNames) do
+        -- Criar botão para cada aba
+        local tabButton = Instance.new("TextButton")
+        tabButton.Size = UDim2.new(0, 100, 0, 30)
+        tabButton.Position = UDim2.new(0, (i - 1) * 110, 0, 0)
+        tabButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        tabButton.Text = tabName
+        tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        tabButton.TextSize = 14
+        tabButton.Parent = tabButtonsFrame
+
+        tabButton.MouseButton1Click:Connect(function()
+            -- Mostrar o conteúdo da aba selecionada
+            if currentTab then
+                currentTab.Visible = false
+            end
+            currentTab = tabs[tabName]
+            currentTab.Visible = true
+        end)
+
+        -- Criar página de cada aba
+        local tabPage = Instance.new("Frame")
+        tabPage.Size = UDim2.new(1, 0, 1, -40)
+        tabPage.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        tabPage.Position = UDim2.new(0, 0, 0, 0)
+        tabPage.Visible = (i == 1)
+        tabPage.Parent = tabPagesFrame
+
+        tabs[tabName] = tabPage
+    end
+
+    return tabs
+end
+
+return UI_Lib
