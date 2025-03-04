@@ -5,8 +5,8 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local stats = player:FindFirstChild("Stats")
 
-local sacRemote = ReplicatedStorage.Remote.FromLocalForServer.Get.sac2
-local ascRemote = ReplicatedStorage.Remote.FromLocalForServer.Get.asc2
+local sacRemote = ReplicatedStorage.Remote.FromLocalForServer.Get.sac1
+local ascRemote = ReplicatedStorage.Remote.FromLocalForServer.Get.asc3
 local stRemote = ReplicatedStorage.Remote.FromLocalForServer.Get.st
 local rkRemote = ReplicatedStorage.Remote.FromLocalForServer.Get.rk
 
@@ -28,7 +28,7 @@ local function createButton()
     
     local toggleButton = Instance.new("TextButton", screenGui)
     toggleButton.Size = UDim2.new(0, 100, 0, 50)
-    toggleButton.Position = UDim2.new(0.5, -250, 0.05, 0) -- Agora na parte de cima da tela
+    toggleButton.Position = UDim2.new(0.5, -50, 0.05, 0) -- Agora na parte de cima da tela
     toggleButton.Text = "Ligar"
     toggleButton.BackgroundColor3 = Color3.new(0, 1, 0)
     
@@ -76,15 +76,15 @@ if stats and stats:FindFirstChild("Rank") then
         
         local currentRank = rank.Value
         
-        if currentRank >= 100 and sacDone then
+        if currentRank >= 200 and sacDone then
             ascRemote:FireServer()
             lastActivated = "asc"
             sacDone = false -- Reseta após fazer asc
-        elseif currentRank >= 100 and not sacActive and not sacDone then
+        elseif currentRank >= 10 and not sacActive and not sacDone then
             sacActive = true
             rkEnabled = false -- Desativa rk por 2 segundos
             task.wait(0.1)
-            while rank.Value >= 100 do
+            while rank.Value >= 10 do
                 sacRemote:FireServer()
                 task.wait(0.5) -- Pequeno delay para evitar sobrecarga
             end
