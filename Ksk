@@ -94,7 +94,7 @@ local function teleportToOre(ore)
     local targetCFrame = CFrame.new(targetPos) * CFrame.Angles(0, math.rad(ore.Orientation.Y), 0)
     
     local tweenInfo = TweenInfo.new(
-        0.5,
+        0,
         Enum.EasingStyle.Quad,
         Enum.EasingDirection.Out
     )
