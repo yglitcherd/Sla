@@ -14,7 +14,7 @@ local Window = Rayfield:CreateWindow({
     LoadingSubtitle = "by SeuNome",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = nil, -- Usa pasta padrão
+        FolderName = nil,
         FileName = "AutoMinerConfig"
     }
 })
@@ -22,14 +22,11 @@ local Window = Rayfield:CreateWindow({
 -- Cria uma aba
 local Tab = Window:CreateTab("Mineração", nil)
 
--- Variáveis para controlar os estados dos loops
-local isMiningSelected = false
-local isMiningRarest = false
-local isMiningNormal = false
-local selectedOre = "Stone" -- Minério padrão
-local originalCFrame = nil -- Armazena o CFrame original antes de ativar o Auto Miner
+-- Variáveis
+local isMiningFarmHop = false
+local selectedOre = game:GetService("ReplicatedStorage"):WaitForChild("LastSelectedOre").Value -- Obtém o minério selecionado do servidor anterior
 
--- Tabela de minérios com raridades (baseada na tabela v3)
+-- Tabela de minérios com raridades
 local oreRarities = {
     Darkstone = 99,
     Stone = 98,
@@ -58,7 +55,7 @@ local oreRarities = {
     Yumium = 0.00001
 }
 
--- Lista de minérios em ordem de raridade (decrescente)
+-- Lista de minérios
 local oreList = {
     "Darkstone", "Stone", "Copper", "Chest", "Coal", "Iron", "Ruby", "Diamond",
     "Abyssal Stone", "Ambrosia", "Ammolite", "Platinum", "Dragonglass", "Plutonium",
@@ -86,48 +83,6 @@ local function getNearestOre(oreName)
     return nearest
 end
 
--- Função para encontrar o minério mais próximo (qualquer tipo)
-local function getNearestAnyOre()
-    if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then
-        return nil
-    end
-    local hrp = lp.Character.HumanoidRootPart
-    
-    local nearest, distance = nil, math.huge
-    for _, ore in pairs(workspace.Ores:GetChildren()) do
-        if ore:IsA("BasePart") then
-            local dist = (ore.Position - hrp.Position).Magnitude
-            if dist < distance then
-                distance = dist
-                nearest = ore
-            end
-        end
-    end
-    return nearest
-end
-
--- Função para encontrar o minério mais raro em workspace.Ores
-local function getRarestOre()
-    if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then
-        return nil
-    end
-    local hrp = lp.Character.HumanoidRootPart
-    
-    local rarestOre, rarestValue, nearestDist = nil, math.huge, math.huge
-    for _, ore in pairs(workspace.Ores:GetChildren()) do
-        if ore:IsA("BasePart") and oreRarities[ore.Name] then
-            local rarity = oreRarities[ore.Name]
-            local dist = (ore.Position - hrp.Position).Magnitude
-            if rarity < rarestValue or (rarity == rarestValue and dist < nearestDist) then
-                rarestValue = rarity
-                nearestDist = dist
-                rarestOre = ore
-            end
-        end
-    end
-    return rarestOre
-end
-
 -- Função para teleportar o jogador até o minério usando TweenService
 local function teleportToOre(ore)
     if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") or not ore then
@@ -135,13 +90,11 @@ local function teleportToOre(ore)
     end
     local hrp = lp.Character.HumanoidRootPart
     
-    -- Posiciona 1 stud acima do minério
     local targetPos = ore.Position + Vector3.new(0, 1, 0)
     local targetCFrame = CFrame.new(targetPos) * CFrame.Angles(0, math.rad(ore.Orientation.Y), 0)
     
-    -- Cria o tween para movimento suave
     local tweenInfo = TweenInfo.new(
-        0, -- Duração do tween corrigida para 0.5 segundos
+        0.5,
         Enum.EasingStyle.Quad,
         Enum.EasingDirection.Out
     )
@@ -151,30 +104,28 @@ local function teleportToOre(ore)
     return true
 end
 
--- Função para teleportar o jogador de volta ao CFrame original
-local function teleportToOriginal()
-    if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") or not originalCFrame then
-        return false
-    end
-    local hrp = lp.Character.HumanoidRootPart
+-- Função para realizar server hop
+local function serverHop()
+    local HttpService = game:GetService("HttpService")
+    local TeleportService = game:GetService("TeleportService")
     
-    -- Cria o tween para movimento suave
-    local tweenInfo = TweenInfo.new(
-        0, -- Duração do tween
-        Enum.EasingStyle.Quad,
-        Enum.EasingDirection.Out
-    )
-    local tween = ts:Create(hrp, tweenInfo, {CFrame = originalCFrame})
-    tween:Play()
-    tween.Completed:Wait()
-    return true
+    local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+    local serverList = servers.data
+    
+    for _, server in pairs(serverList) do
+        if server.playing < server.maxPlayers and server.id ~= game.JobId then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, lp)
+            break
+        end
+    end
+    wait(5) -- Delay caso o teleporte falhe
 end
 
--- Loop de mineração para o minério selecionado
-local function mineSelectedLoop()
-    while isMiningSelected do
+-- Loop de mineração para Farm Hop
+local function farmHopLoop()
+    while isMiningFarmHop do
         if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then
-            isMiningSelected = false
+            isMiningFarmHop = false
             return
         end
         
@@ -187,48 +138,18 @@ local function mineSelectedLoop()
                 end
             end
         else
-            -- Se não houver minério selecionado, teleporta de volta ao CFrame original
-            teleportToOriginal()
+            -- Salva o minério selecionado para o próximo servidor
+            rs:WaitForChild("LastSelectedOre").Value = selectedOre
+            -- Configura o script para executar no próximo servidor
+            game:GetService("TeleportService"):SetTeleportGui("Switching servers...")
+            QueueOnTeleport([[
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/FarmHopQueue.lua"))()
+            ]])
+            -- Realiza o server hop
+            serverHop()
+            wait(10) -- Aguarda antes de tentar novamente
         end
-        wait(0) -- Delay para estabilidade
-    end
-end
-
--- Loop de mineração para o minério mais raro
-local function mineRarestLoop()
-    while isMiningRarest do
-        if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then
-            isMiningRarest = false
-            return
-        end
-        
-        local target = getRarestOre()
-        if target then
-            local success = teleportToOre(target)
-            if success and target and target.Parent then
-                if oreRarities[target.Name] then
-                    rs.Events.MineOre:FireServer(target)
-                end
-            end
-        end
-        wait(0) -- Delay para estabilidade
-    end
-end
-
--- Loop de mineração para o minério mais próximo (Normal Farm)
-local function mineNormalLoop()
-    while isMiningNormal do
-        if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then
-            isMiningNormal = false
-            return
-        end
-        local hrp = lp.Character.HumanoidRootPart
-        
-        local target = getNearestAnyOre()
-        if target then
-            rs.Events.MineOre:FireServer(target)
-        end
-        wait(0) -- Delay para estabilidade
+        wait(0)
     end
 end
 
@@ -236,7 +157,7 @@ end
 local Dropdown = Tab:CreateDropdown({
     Name = "Selecionar Minério",
     Options = oreList,
-    CurrentOption = "Stone",
+    CurrentOption = selectedOre,
     Flag = "OreSelection",
     Callback = function(Option)
         if type(Option) == "table" then
@@ -247,67 +168,26 @@ local Dropdown = Tab:CreateDropdown({
     end
 })
 
--- Cria o botão de ligar/desligar para minério selecionado
-local ToggleSelected = Tab:CreateToggle({
-    Name = "Auto Miner",
-    CurrentValue = false,
-    Flag = "AutoMinerToggle",
+-- Cria o botão de ligar/desligar para Farm Hop
+local ToggleFarmHop = Tab:CreateToggle({
+    Name = "Farm Hop",
+    CurrentValue = true, -- Ativa automaticamente
+    Flag = "FarmHopToggle",
     Callback = function(Value)
-        isMiningSelected = Value
-        if isMiningSelected then
-            if isMiningRarest or isMiningNormal then
-                isMiningRarest = false
-                isMiningNormal = false
-            end
+        isMiningFarmHop = Value
+        if isMiningFarmHop then
             if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then
-                isMiningSelected = false
+                isMiningFarmHop = false
                 return
             end
-            -- Salva o CFrame original antes de iniciar o loop
-            originalCFrame = lp.Character.HumanoidRootPart.CFrame
-            spawn(mineSelectedLoop)
+            spawn(farmHopLoop)
         end
     end
 })
 
--- Cria o botão de ligar/desligar para farmar o minério mais raro
-local ToggleRarest = Tab:CreateToggle({
-    Name = "Farm Rarest Ore",
-    CurrentValue = false,
-    Flag = "FarmRarestToggle",
-    Callback = function(Value)
-        isMiningRarest = Value
-        if isMiningRarest then
-            if isMiningSelected or isMiningNormal then
-                isMiningSelected = false
-                isMiningNormal = false
-            end
-            if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then
-                isMiningRarest = false
-                return
-            end
-            spawn(mineRarestLoop)
-        end
-    end
-})
-
--- Cria o botão de ligar/desligar para farmar o minério mais próximo
-local ToggleNormal = Tab:CreateToggle({
-    Name = "Normal Farm",
-    CurrentValue = false,
-    Flag = "NormalFarmToggle",
-    Callback = function(Value)
-        isMiningNormal = Value
-        if isMiningNormal then
-            if isMiningSelected or isMiningRarest then
-                isMiningSelected = false
-                isMiningRarest = false
-            end
-            if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then
-                isMiningNormal = false
-                return
-            end
-            spawn(mineNormalLoop)
-        end
-    end
-})
+-- Inicia o Farm Hop automaticamente
+if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then
+    lp.CharacterAdded:Wait()
+end
+isMiningFarmHop = true
+spawn(farmHopLoop)
